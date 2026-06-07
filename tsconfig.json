@@ -10,7 +10,7 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
-    "types": ["node"],
+    "types": ["node", "react", "react-dom"],
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "moduleResolution": "bundler",

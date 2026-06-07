@@ -20,15 +20,14 @@ export default function App() {
     }
 
     // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then((res: any) => {
+      const session = res?.data?.session;
       setSession(session);
       setLoading(false);
     });
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } }: any = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setSession(session);
     });
 
@@ -79,7 +78,7 @@ export default function App() {
       {/* Main Content */}
       <main className="relative z-10 min-h-screen flex items-center justify-center p-4">
         {!session ? (
-          <Login onSession={() => supabase.auth.getSession().then(({ data }) => setSession(data.session))} />
+          <Login onSession={() => supabase.auth.getSession().then((res: any) => setSession(res?.data?.session))} />
         ) : (
           <Dashboard onLogout={() => setSession(null)} />
         )}
