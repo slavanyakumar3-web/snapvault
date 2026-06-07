@@ -180,6 +180,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             className="hidden"
             accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={handleChange}
+            aria-label="Upload image"
+            title="Upload image"
           />
 
           {!uploading ? (
@@ -196,9 +198,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
               <h3 className="text-lg font-medium text-white mb-2">Uploading Image...</h3>
               <div className="w-full bg-gray-800 rounded-full h-2 mt-4 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${uploadProgress}%` }}
+                <div
+                  className={`bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300 ease-out w-[${uploadProgress}%]`}
                 />
               </div>
             </div>
