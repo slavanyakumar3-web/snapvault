@@ -1,0 +1,6 @@
+{
+  "name": "SnapVault",
+  "description": "A full-stack cloud-based image upload web application using Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
