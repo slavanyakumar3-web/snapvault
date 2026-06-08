@@ -23,16 +23,39 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [successToast, setSuccessToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const progressWidthClasses: Record<number, string> = {
+    0: 'w-[0%]',
+    10: 'w-[10%]',
+    20: 'w-[20%]',
+    30: 'w-[30%]',
+    40: 'w-[40%]',
+    50: 'w-[50%]',
+    60: 'w-[60%]',
+    70: 'w-[70%]',
+    80: 'w-[80%]',
+    90: 'w-[90%]',
+    100: 'w-[100%]',
+  };
+
   useEffect(() => {
     fetchImages();
   }, []);
 
   const fetchImages = async () => {
     try {
-      const response = await fetch('/api/images');
-      if (!response.ok) throw new Error('Failed to fetch images');
-      const data = await response.json();
-      setImages(data.images || []);
+      setLoading(true);
+      const { data, error } = await supabase.storage.from('images').list('', {
+        limit: 100,
+        sortBy: { column: 'created_at', order: 'desc' },
+      });
+      if (error) throw error;
+
+      const files = (data || []).filter((item: any) => item.name !== '.emptyFolderPlaceholder');
+      const imagesList = files.map((file: any) => {
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(file.name);
+        return { name: file.name, url: publicUrl, created_at: file.created_at || '' };
+      });
+      setImages(imagesList);
     } catch (err) {
       console.error(err);
     } finally {
@@ -43,18 +66,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       await uploadFile(e.dataTransfer.files[0]);
     }
@@ -81,40 +100,35 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append('image', file);
-
     try {
-      // Simulate progress for better UX since fetch doesn't support progress events natively
       const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 10));
+        setUploadProgress(prev => (prev >= 90 ? 90 : prev + 10));
       }, 200);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const fileExt = file.name.split('.').pop();
+      const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(uniqueFilename, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: false,
+        });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
+      if (uploadError) throw uploadError;
 
       setSuccessToast(true);
       setTimeout(() => setSuccessToast(false), 3000);
-
-      // Fetch fresh list
       await fetchImages();
-      
+
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
       }, 500);
-
     } catch (err: any) {
       setError(err.message || 'Error uploading file');
       setUploading(false);
@@ -139,11 +153,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="w-full max-w-6xl mx-auto py-8 px-4 h-full flex flex-col relative">
-      {/* Toast Notification */}
       {successToast && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300 bg-green-500/20 border border-green-500 text-green-400 px-6 py-3 rounded-full flex items-center gap-2 shadow-[0_0_20px_rgba(34,197,94,0.2)] backdrop-blur-md">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-green-500/20 border border-green-500 text-green-400 px-6 py-3 rounded-full flex items-center gap-2 shadow-lg backdrop-blur-md">
           <Check className="w-5 h-5" />
-          <span className="font-medium">Upload Successful! âœ…</span>
+          <span className="font-medium">Upload Successful! ✅</span>
         </div>
       )}
 
@@ -161,7 +174,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         </button>
       </header>
 
-      {/* Upload Area */}
       <div className="mb-12">
         <div
           className={`relative border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center transition-all bg-gray-900/40 backdrop-blur-sm
@@ -180,8 +192,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             className="hidden"
             accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={handleChange}
-            aria-label="Upload image"
             title="Upload image"
+            aria-label="Upload image"
           />
 
           {!uploading ? (
@@ -199,21 +211,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               <h3 className="text-lg font-medium text-white mb-2">Uploading Image...</h3>
               <div className="w-full bg-gray-800 rounded-full h-2 mt-4 overflow-hidden">
                 <div
-                  className={`bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300 ease-out w-[${uploadProgress}%]`}
+                  className={`bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300 ease-out ${progressWidthClasses[uploadProgress]}`}
                 />
               </div>
             </div>
           )}
         </div>
-        
+
         {error && (
-          <div className="mt-4 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg text-sm text-center animate-in fade-in slide-in-from-top-2">
+          <div className="mt-4 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg text-sm text-center">
             {error}
           </div>
         )}
       </div>
 
-      {/* Gallery Section */}
       <div className="flex-1">
         <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
           Your Uploads
@@ -233,16 +244,16 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {images.map((image) => (
-              <div 
-                key={image.name} 
+            {images.map(image => (
+              <div
+                key={image.name}
                 className="group relative bg-gray-900/60 rounded-2xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
               >
                 <div className="aspect-square overflow-hidden bg-gray-800">
                   <a href={image.url} target="_blank" rel="noopener noreferrer">
-                    <img 
-                      src={image.url} 
-                      alt={image.name} 
+                    <img
+                      src={image.url}
+                      alt={image.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
                     />
@@ -250,12 +261,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
                 </div>
                 <div className="p-4 space-y-3">
                   <p className="text-sm font-medium text-gray-200 truncate" title={image.name}>
-                    {image.name.split('-').slice(1).join('-') || image.name}
+                    {image.name.split('-').slice(2).join('-') || image.name}
                   </p>
-                  <a 
-                    href={image.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
+                  <a
+                    href={image.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-xs text-purple-400 hover:text-purple-300 hover:underline block truncate"
                     title={image.url}
                   >
